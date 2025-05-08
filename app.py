@@ -1,7 +1,4 @@
-# === FULL PROJECT: ETF Portfolio Tracker & Risk Analyzer ===
-# Includes: Flask Backend, SQLite Storage, HTML + JavaScript Frontend
 
-# === BACKEND: app.py ===
 
 from flask import Flask, jsonify, request
 import yfinance as yf
@@ -12,7 +9,7 @@ from datetime import datetime
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend requests
+CORS(app) 
 
 # SQLite setup
 conn = sqlite3.connect('etf_data.db', check_same_thread=False)
