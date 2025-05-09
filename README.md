@@ -2,6 +2,8 @@
 
 A full-stack application for tracking and analyzing ETF portfolios with risk metrics, performance visualization, and portfolio rebalancing capabilities.
 
+![Demo](assets/demo.png)
+
 ## Features
 
 - Portfolio performance tracking vs benchmark indices (SPY, QQQ, etc.)
