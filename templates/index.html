@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Basic meta setup for modern browsers -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETF Portfolio Tracker</title>
+
+    <!-- External libraries - Plotly for charts and Papa Parse for CSV handling -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+
+    <!-- CSS Styling - Used grid layout for modern responsive design -->
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .metric-card {
+            background-color: #f1f8ff;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0066cc;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #666;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        button {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0052a3;
+        }
+        input, select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .portfolio-entry {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        #correlation-heatmap {
+            height: 300px;
+        }
+        h2 {
+            margin-top: 0;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header section with project title -->
+    <div class="card">
+        <h1>ETF Portfolio Tracker & Risk Analyzer</h1>
+        <p>Enter your ETF portfolio details below to analyze performance and risk metrics. 
+           Developed by: Sahibjot Singh Bhoday</p>
+    </div>
+
+    <!-- Main container with portfolio input section -->
+    <div class="container">
+        <div class="card">
+            <h2>Portfolio Composition</h2>
+            <!-- Dynamic input section for ETFs -->
+            <div id="portfolio-inputs">
+                <div class="portfolio-entry">
+                    <input type="text" placeholder="ETF Ticker" class="ticker-input">
+                    <input type="number" placeholder="Weight %" class="weight-input" min="0" max="100">
+                    <button class="remove-btn">X</button>
+                </div>
+            </div>
+            <button id="add-etf">+ Add ETF</button>
+            
+            <!-- Controls for benchmark selection and time period -->
+            <div style="margin-top: 20px;">
+                <label for="benchmark">Benchmark: </label>
+                <select id="benchmark">
+                    <option value="SPY">S&P 500 (SPY)</option>
+                    <option value="QQQ">NASDAQ 100 (QQQ)</option>
+                    <option value="IWM">Russell 2000 (IWM)</option>
+                    <option value="VTI">Total Market (VTI)</option>
+                </select>
+                
+                <label for="period" style="margin-left: 20px;">Period: </label>
+                <select id="period">
+                    <option value="1mo">1 Month</option>
+                    <option value="3mo">3 Months</option>
+                    <option value="6mo">6 Months</option>
+                    <option value="1y" selected>1 Year</option>
+                    <option value="3y">3 Years</option>
+                    <option value="5y">5 Years</option>
+                </select>
+            </div>
+            
+            <button id="analyze-btn" style="margin-top: 20px; width: 100%;">Analyze Portfolio</button>
+        </div>
+        
+        <!-- Risk metrics display section -->
+        <div class="card">
+            <h2>Risk Metrics</h2>
+            <div class="metrics">
+                <div class="metric-card">
+                    <div class="metric-value" id="sharpe-ratio">-</div>
+                    <div class="metric-label">Sharpe Ratio</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="volatility">-</div>
+                    <div class="metric-label">Volatility (%)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="max-drawdown">-</div>
+                    <div class="metric-label">Max Drawdown (%)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="returns">-</div>
+                    <div class="metric-label">Annualized Return (%)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Data visualization section -->
+    <div class="container">
+        <div class="card">
+            <h2>Performance vs Benchmark</h2>
+            <div id="performance-chart" style="height: 400px;"></div>
+        </div>
+        
+        <div class="card">
+            <h2>Correlation Heatmap</h2>
+            <div id="correlation-heatmap"></div>
+        </div>
+    </div>
+    
+    <!-- Portfolio rebalancing calculator section -->
+    <div class="card">
+        <h2>Portfolio Rebalancing</h2>
+        <p>Enter current values of your holdings to calculate required trades for rebalancing.</p>
+        <div id="rebalance-table-container">
+            <table id="rebalance-table">
+                <thead>
+                    <tr>
+                        <th>ETF</th>
+                        <th>Target Weight (%)</th>
+                        <th>Current Value ($)</th>
+                        <th>Current Weight (%)</th>
+                        <th>Target Value ($)</th>
+                        <th>Trade Needed ($)</th>
+                    </tr>
+                </thead>
+                <tbody id="rebalance-body">
+                </tbody>
+            </table>
+        </div>
+        <button id="rebalance-btn" style="margin-top: 20px;">Calculate Rebalancing</button>
+    </div>
+
+    <!-- Main JavaScript functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize with default portfolio for demonstration
+            const portfolioInputs = document.getElementById('portfolio-inputs');
+            
+            // Adding some popular ETFs as default values
+            addETF('VOO', 40);  // S&P 500 ETF
+            addETF('QQQ', 30);  // NASDAQ ETF
+            addETF('VGT', 20);  // Technology Sector ETF
+            addETF('VWO', 10);  // Emerging Markets ETF
+            
+            // Event listener setup
+            document.getElementById('add-etf').addEventListener('click', function() {
+                addETF('', '');
+            });
+            
+            document.getElementById('analyze-btn').addEventListener('click', analyzePortfolio);
+            document.getElementById('rebalance-btn').addEventListener('click', calculateRebalancing);
+            
+            // Function to dynamically add new ETF input fields
+            function addETF(ticker = '', weight = '') {
+                const entry = document.createElement('div');
+                entry.className = 'portfolio-entry';
+                entry.innerHTML = `
+                    <input type="text" placeholder="ETF Ticker" class="ticker-input" value="${ticker}">
+                    <input type="number" placeholder="Weight %" class="weight-input" min="0" max="100" value="${weight}">
+                    <button class="remove-btn">X</button>
+                `;
+                
+                entry.querySelector('.remove-btn').addEventListener('click', function() {
+                    entry.remove();
+                });
+                
+                portfolioInputs.appendChild(entry);
+            }
+            
+            // Main portfolio analysis function - calls backend API
+            function analyzePortfolio() {
+                const tickers = [];
+                const weights = [];
+                
+                // Get all tickers and weights
+                const tickerInputs = document.querySelectorAll('.ticker-input');
+                const weightInputs = document.querySelectorAll('.weight-input');
+                
+                for (let i = 0; i < tickerInputs.length; i++) {
+                    const ticker = tickerInputs[i].value.trim().toUpperCase();
+                    const weight = parseFloat(weightInputs[i].value) || 0;
+                    
+                    if (ticker && weight > 0) {
+                        tickers.push(ticker);
+                        weights.push(weight);
+                    }
+                }
+                
+                if (tickers.length === 0) {
+                    alert('Please add at least one ETF to your portfolio.');
+                    return;
+                }
+                
+                // Normalize weights to sum to 100
+                const totalWeight = weights.reduce((a, b) => a + b, 0);
+                const normalizedWeights = weights.map(w => w / totalWeight);
+                
+                const benchmark = document.getElementById('benchmark').value;
+                const period = document.getElementById('period').value;
+                
+                // Call API
+                fetch('/api/portfolio', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        tickers: tickers,
+                        weights: normalizedWeights,
+                        benchmark: benchmark,
+                        period: period
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Update metrics
+                    document.getElementById('sharpe-ratio').textContent = data.metrics.sharpe_ratio;
+                    document.getElementById('volatility').textContent = data.metrics.volatility;
+                    document.getElementById('max-drawdown').textContent = data.metrics.max_drawdown;
+                    document.getElementById('returns').textContent = data.metrics.returns;
+                    
+                    // Plot performance chart
+                    const performanceData = [
+                        {
+                            x: data.timeseries.dates,
+                            y: data.timeseries.portfolio,
+                            type: 'scatter',
+                            mode: 'lines',
+                            name: 'Portfolio',
+                            line: {
+                                color: '#0066cc',
+                                width: 2
+                            }
+                        },
+                        {
+                            x: data.timeseries.dates,
+                            y: data.timeseries.benchmark,
+                            type: 'scatter',
+                            mode: 'lines',
+                            name: data.timeseries.benchmark_ticker,
+                            line: {
+                                color: '#ff6600',
+                                width: 2
+                            }
+                        }
+                    ];
+                    
+                    const performanceLayout = {
+                        margin: { t: 10, r: 10, b: 40, l: 40 },
+                        xaxis: {
+                            title: 'Date'
+                        },
+                        yaxis: {
+                            title: 'Value (Starting = 100)',
+                        },
+                        legend: {
+                            x: 0,
+                            y: 1,
+                            orientation: 'h'
+                        }
+                    };
+                    
+                    Plotly.newPlot('performance-chart', performanceData, performanceLayout);
+                    
+                    // Plot correlation heatmap
+                    const correlationMatrix = data.correlation;
+                    const correlationEtfs = tickers;
+                    
+                    const zValues = [];
+                    for (let i = 0; i < correlationEtfs.length; i++) {
+                        const row = [];
+                        for (let j = 0; j < correlationEtfs.length; j++) {
+                            row.push(correlationMatrix[correlationEtfs[i]][correlationEtfs[j]]);
+                        }
+                        zValues.push(row);
+                    }
+                    
+                    const heatmapData = [{
+                        z: zValues,
+                        x: correlationEtfs,
+                        y: correlationEtfs,
+                        type: 'heatmap',
+                        colorscale: 'Viridis',
+                        showscale: true
+                    }];
+                    
+                    const heatmapLayout = {
+                        margin: { t: 25, r: 10, b: 40, l: 40 },
+                        annotations: [],
+                    };
+                    
+                    // Add text annotations to heatmap
+                    for (let i = 0; i < correlationEtfs.length; i++) {
+                        for (let j = 0; j < correlationEtfs.length; j++) {
+                            const currentValue = zValues[i][j];
+                            heatmapLayout.annotations.push({
+                                xref: 'x',
+                                yref: 'y',
+                                x: correlationEtfs[j],
+                                y: correlationEtfs[i],
+                                text: currentValue.toFixed(2),
+                                font: {
+                                    color: currentValue > 0.5 ? 'white' : 'black'
+                                },
+                                showarrow: false
+                            });
+                        }
+                    }
+                    
+                    Plotly.newPlot('correlation-heatmap', heatmapData, heatmapLayout);
+                    
+                    // Prepare rebalancing table
+                    const rebalanceBody = document.getElementById('rebalance-body');
+                    rebalanceBody.innerHTML = '';
+                    
+                    for (let i = 0; i < tickers.length; i++) {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${tickers[i]}</td>
+                            <td>${(normalizedWeights[i] * 100).toFixed(2)}%</td>
+                            <td><input type="number" class="current-value" placeholder="$"></td>
+                            <td class="current-weight">-</td>
+                            <td class="target-value">-</td>
+                            <td class="trade-needed">-</td>
+                        `;
+                        rebalanceBody.appendChild(row);
+                    }
+                    
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error analyzing portfolio. Check console for details.');
+                });
+            }
+            
+            // Portfolio rebalancing calculator function
+            function calculateRebalancing() {
+                const tickers = [];
+                const weights = [];
+                const values = [];
+                
+                // Get all tickers, weights and current values
+                const rows = document.querySelectorAll('#rebalance-body tr');
+                
+                for (const row of rows) {
+                    const ticker = row.cells[0].textContent;
+                    const weight = parseFloat(row.cells[1].textContent) / 100;
+                    const value = parseFloat(row.querySelector('.current-value').value) || 0;
+                    
+                    if (value > 0) {
+                        tickers.push(ticker);
+                        weights.push(weight);
+                        values.push(value);
+                    }
+                }
+                
+                if (values.length === 0 || values.some(v => isNaN(v) || v <= 0)) {
+                    alert('Please enter valid current values for all ETFs.');
+                    return;
+                }
+                
+                // Call rebalance API
+                fetch('/api/rebalance', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        tickers: tickers,
+                        weights: weights,
+                        values: values
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const totalValue = values.reduce((a, b) => a + b, 0);
+                    
+                    // Update rebalance table
+                    for (let i = 0; i < tickers.length; i++) {
+                        const row = rows[i];
+                        const currentWeight = (values[i] / totalValue * 100).toFixed(2);
+                        const targetValue = data.target_values[i].toFixed(2);
+                        const tradeNeeded = data.trades_needed[i].toFixed(2);
+                        
+                        row.querySelector('.current-weight').textContent = `${currentWeight}%`;
+                        row.querySelector('.target-value').textContent = `$${targetValue}`;
+                        row.querySelector('.trade-needed').textContent = `$${tradeNeeded}`;
+                        
+                        // Highlight trades
+                        if (parseFloat(tradeNeeded) > 0) {
+                            row.querySelector('.trade-needed').style.color = 'green';
+                        } else if (parseFloat(tradeNeeded) < 0) {
+                            row.querySelector('.trade-needed').style.color = 'red';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error calculating rebalancing. Check console for details.');
+                });
+            }
+        });
+    </script>
+</body>
+</html>
