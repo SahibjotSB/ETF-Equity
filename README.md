@@ -5,6 +5,7 @@ A full-stack application for tracking and analyzing ETF portfolios with risk met
 ![Demo](assets/Demo.png)
 
 This tool calculates the exact dollar amounts needed to rebalance your ETF holdings to target weights.
+
 Green = Buy | Red = Sell | Intuitive dollar differences are shown
 
 ## Features
